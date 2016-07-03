@@ -1,5 +1,4 @@
 module Hscheme.Parser (
-    LispVal(..),
     parseExpr,
     unwordsList,
     parse
@@ -11,28 +10,9 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment ()
 import Control.Monad (liftM)
 
-data LispVal = Atom String
-    | List [LispVal]
-    | DottedList [LispVal] LispVal
-    | Number Integer
-    | Float Double
-    | String String
-    | Bool Bool
-
-instance Show LispVal where
-    show (Atom name) = name
-    show (List contents) = "(" ++ unwordsList contents ++ ")"
-    show (DottedList h t) = "(" ++ unwordsList h ++ " . " ++ show t ++ ")"
-    show (String ctns) = "\"" ++ ctns ++ "\""
-    show (Number num) = show num
-    show (Float num) = show num
-    show (Bool True) = "#t"
-    show (Bool False) = "#f"
+import Hscheme.Value
 
 type LispParser = Parser LispVal
-
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map show
 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"

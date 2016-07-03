@@ -2,7 +2,7 @@ module Hscheme.Evalution (eval) where
 
 import Control.Monad.Error
 
-import Hscheme.Parser
+import Hscheme.Value
 import Hscheme.Error
 import Hscheme.Numeric
 
