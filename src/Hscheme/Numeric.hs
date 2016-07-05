@@ -1,30 +1,13 @@
+{-# LANGUAGE RankNTypes #-}
 module Hscheme.Numeric where
 
+import Control.Monad
+
 import Hscheme.Parser
-import Hscheme.Error
+import Hscheme.Types
 
-{-
-
-universalDiv :: [LispVal] -> ThrowsError LispVal
-universalDiv args =
-    let op = numOp (/) in
-        case args of
-          emp@[] -> op emp
-          single@[_] -> op single
-          ((Number x):xs) -> op $ (Float . fromInteger $ x) : xs
-
-numOp :: (Num a) => (a -> a -> a) -> [LispVal] -> ThrowsError LispVal
-numOp op [] = throwError $ NumArgs 2 []
-numOp op singleVal@[_] = throwError $ NumArgs 2 singleVal
-numOp op args = return $ foldl1 alignTypedOp args
-    where
-        alignTypedOp :: LispVal -> LispVal -> LispVal
-        alignTypedOp (Number l) (Float r) = Float $ fromInteger l  `op` r
-        alignTypedOp (Float l) (Number r) = Float $ l `op` fromInteger r
-        alignTypedOp (Float l) (Float r) = Float $ l `op` r
-        alignTypedOp (Number l) (Number r) = Number $ l `op` r
-
--}
+fold1M :: (Monad m) => (a -> a -> m a) -> [a] -> m a
+fold1M f (x:xs) = foldM f x xs
 
 intOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 intOp _ [] = throwError $ NumArgs 2 []
@@ -34,12 +17,28 @@ intOp op args = mapM unpackNum args >>= return . Number . foldl1 op
         unpackNum :: LispVal -> ThrowsError Integer
         unpackNum (Number num) = return num
         unpackNum bad = throwError $ TypeMismatch "number" bad
+{-
+numericOp :: (Num a => a -> a -> a) -> [LispVal] -> ThrowsError LispVal
+numericOp _ [] = throwError $ NumArgs 2 []
+numericOp _ singleVal@[_] = throwError $ NumArgs 2 singleVal
+numericOp op args = fold1M doOp args
+  where
+    doOp :: LispVal -> LispVal -> ThrowsError LispVal
+    doOp (Number alpha) (Number beta) = return . Number $ alpha `op` beta
+    doOp (Number alpha) (Float beta) = return . Float $ (fromInteger alpha) `op` beta
+    doOp (Float alpha) (Number beta) = return . Float $ alpha `op` (fromInteger beta)
+    doOp (Float alpha) (Float beta) = return . Float $ alpha `op` beta
+    doOp alpha beta = throwError $ TypeMismatch "number or float" bad
+      where bad = case alpha of
+                    Number _ -> beta
+                    Float _ -> beta
+                    _ -> alpha
+-}
+numericDiv :: [LispVal] -> ThrowsError LispVal
+numericDiv args = mapM unpackNum args >>= return . Float . foldl1 (/)
+  where
+    unpackNum :: LispVal -> ThrowsError Double
+    unpackNum (Number alpha) = return $ fromInteger alpha
+    unpackNum (Float alpha) = return alpha
+    unpackNum bad = throwError $ TypeMismatch "number or float" bad
 
-data TheList a = Cons a (TheList a) | Nil
-
-theCons :: a -> TheList a -> TheList a
-theCons a l = Cons a l
-
-theHead (Cons h _) = h
-
-theTail (Cons _ t) = t

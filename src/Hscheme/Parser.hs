@@ -1,6 +1,5 @@
 module Hscheme.Parser (
     parseExpr,
-    unwordsList,
     parse
 ) where
 
@@ -10,7 +9,7 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment ()
 import Control.Monad (liftM)
 
-import Hscheme.Value
+import Hscheme.Types
 
 type LispParser = Parser LispVal
 

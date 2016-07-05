@@ -1,40 +1,34 @@
 module Hscheme.Environment (
-    Env(..)
+    Env,
+    getVar,
+    setVar,
+    defineVar,
+    bindVars,
+    newScope
 ) where
 
-import qualified Data.HashTable as H
+import qualified Data.Map.Strict as M
 import Data.IORef
 import Data.Maybe
+import Control.Monad
+import Control.Monad.Trans
 
-import Hscheme.Value
-import Hscheme.Error
+import Hscheme.Types
 
-type HashTable = H.HashTable String LispVal
-type Env = IORef [HashTable]
+lookupEnv :: String -> [Binds] -> Maybe (IORef LispVal)
+lookupEnv var (cur:parent) =
+    case M.lookup var cur of
+      val@(Just _) -> val
+      Nothing -> lookupEnv var parent
 
-nullEnv :: IO Env
-nullEnv = newIORef Nothing
+lookupEnv _ [] = Nothing
 
-newSubEnv :: Env -> Env
-newSubEnv ref = do
-    p <- readIORef ref
-    sub <- H.new (==) H.hashString
-    return $ sub:p
+lookupCur :: String -> [Binds] -> Maybe (IORef LispVal)
+lookupCur var (ref:_) = M.lookup var ref
+lookupCur _ [] = Nothing
 
-lookupEnv :: String -> [HashTable] -> IO (Maybe LispVal)
-lookupEnv var (cur:parent) = do
-    res <- H.lookup var cur
-    case res of
-        val@(Just _) -> return val
-        Nothing -> lookupEnv var parent
-lookupEnv _ [] = return Nothing
-
-lookupCur :: String -> [HashTable] -> IO (Maybe LispVal)
-lookupCur var (ref:_) = H.lookup var ref
-
--- TODO: 返回的 IO 类型不符合
 isBound :: Env -> String -> IO Bool
-isBound env var = readIORef env >>= isJust . lookupEnv var
+isBound env var = readIORef env >>= return . isJust . lookupEnv var
 
 getVar :: Env -> String -> IOThrowsError LispVal
 getVar envRef var = do
@@ -47,17 +41,24 @@ setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
 setVar envRef var val = do
     env <- liftIO $ readIORef envRef
     maybe (throwError $ UnboundVar "Setting a unbound varible" var)
-          (liftIO . flip writeIORef value)
+          (liftIO . flip writeIORef val)
           (lookupEnv var env)
-    return value
+    return val
 
 defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
 defineVar envRef var val = do
-    alreadyDefined <- liftIO $ lookupCur var envRef
-    if alreadyDefined then
-        throwError $ DupBound "Duplicate definition" var
-    else
-        liftIO $ do
-            valueRef <- newIORef value
-            env <- readIORef envRef
-            writeIORef envRef -- TODO
+    liftIO $ do
+        valueRef <- newIORef val
+        (curScope:parentScope) <- readIORef envRef
+        writeIORef envRef ((M.insert var valueRef curScope):parentScope)
+    return val
+
+bindVars :: Env -> [(String, LispVal)] -> IO Env
+bindVars envRef bindings = readIORef envRef >>= extendEnv >>= newIORef
+  where
+    extendEnv (cur:pre) = liftM (:pre) $ unionScope cur
+    unionScope old = mapM addBindings bindings >>= return . (M.union old) . M.fromList
+    addBindings (key, val) = newIORef val >>= \ref -> return (key, ref)
+
+newScope :: Env -> IO Env
+newScope old = readIORef old >>= \ref -> newIORef $ M.empty : ref
