@@ -8,7 +8,7 @@ import Data.Char
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment ()
 import Control.Monad (liftM)
-
+import Control.Applicative ((<$>))
 import Hscheme.Types
 
 type LispParser = Parser LispVal
@@ -49,7 +49,7 @@ parseNumber = try parseFloat <|> parseInteger
 
 parseFloat :: LispParser
 parseFloat = do
-    beforeDot <- many digit
+    beforeDot <- many1 digit
     dot <- char '.'
     fra <- many1 digit
     let h = case beforeDot of
@@ -72,7 +72,7 @@ parseInteger = parseWithBase <|> readBase 10
               'x' -> readBase 16
 
 parseList :: LispParser
-parseList = liftM List $ sepBy parseExpr spaces
+parseList = List <$> sepBy parseExpr spaces
 
 parseDottedList :: LispParser
 parseDottedList = do

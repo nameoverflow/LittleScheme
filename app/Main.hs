@@ -8,6 +8,8 @@ import Hscheme.Parser
 import Hscheme.Types
 import Hscheme.Eval
 
+import Hscheme.Primitive
+
 readExpr :: String -> ThrowsError LispVal
 readExpr input = case parsed of
     Left err -> throwError $ Parser err
@@ -16,7 +18,7 @@ readExpr input = case parsed of
         parsed = parse parseExpr "lisp" input
 
 run :: Env -> String -> IO String
-run env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
+run env expr = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env
 
 runAndPrint :: Env -> String -> IO ()
 runAndPrint env expr = run env expr >>= putStrLn
@@ -28,17 +30,15 @@ readPrompt :: String -> IO String
 readPrompt prompt = flushStr prompt >> getLine
 
 until_ :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
-until_ pred prompt action = do 
+until_ condi prompt action = do
    result <- prompt
-   if pred result 
-      then return ()
-      else action result >> until_ pred prompt action
+   unless (condi result) $ action result >> until_ condi prompt action
 
 runRepl :: IO ()
-runRepl = nullEnv >>= until_ (== "quit") (readPrompt "Lisp>>> ") . runAndPrint
+runRepl = primitives >>= until_ (== "quit") (readPrompt "λ > ") . runAndPrint
 
 main :: IO ()
 main = do
     (expr:_) <- getArgs
-    env <- nullEnv
+    env <- primitives
     runAndPrint env expr

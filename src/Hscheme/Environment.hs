@@ -7,6 +7,7 @@ module Hscheme.Environment (
     newScope
 ) where
 
+import Control.Applicative
 import qualified Data.Map.Strict as M
 import Data.IORef
 import Data.Maybe
@@ -22,13 +23,6 @@ lookupEnv var (cur:parent) =
       Nothing -> lookupEnv var parent
 
 lookupEnv _ [] = Nothing
-
-lookupCur :: String -> [Binds] -> Maybe (IORef LispVal)
-lookupCur var (ref:_) = M.lookup var ref
-lookupCur _ [] = Nothing
-
-isBound :: Env -> String -> IO Bool
-isBound env var = readIORef env >>= return . isJust . lookupEnv var
 
 getVar :: Env -> String -> IOThrowsError LispVal
 getVar envRef var = do
@@ -50,14 +44,14 @@ defineVar envRef var val = do
     liftIO $ do
         valueRef <- newIORef val
         (curScope:parentScope) <- readIORef envRef
-        writeIORef envRef ((M.insert var valueRef curScope):parentScope)
+        writeIORef envRef (M.insert var valueRef curScope : parentScope)
     return val
 
 bindVars :: Env -> [(String, LispVal)] -> IO Env
 bindVars envRef bindings = readIORef envRef >>= extendEnv >>= newIORef
   where
-    extendEnv (cur:pre) = liftM (:pre) $ unionScope cur
-    unionScope old = mapM addBindings bindings >>= return . (M.union old) . M.fromList
+    extendEnv (cur:pre) = (: pre) <$> unionScope cur
+    unionScope old = fmap (M.union old . M.fromList) (mapM addBindings bindings)
     addBindings (key, val) = newIORef val >>= \ref -> return (key, ref)
 
 newScope :: Env -> IO Env

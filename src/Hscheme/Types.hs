@@ -1,5 +1,6 @@
 module Hscheme.Types (
     LispVal(..),
+    LispFunc(..),
     LispError(..),
     ThrowsError,
     IOThrowsError,
@@ -32,13 +33,15 @@ data LispVal = Atom String
     | Float Double
     | String String
     | Bool Bool
-    | PrimitiveFun ([LispVal] -> ThrowsError LispVal)
-    | Fun {
-        params :: [String],
-        vararg :: (Maybe String),
-        body :: [LispVal],
-        closure :: Env
-    }
+    | PrimitiveFun ([LispVal] -> IOThrowsError LispVal)
+    | Fun LispFunc
+
+data LispFunc = LispFunc {
+    params :: [String],
+    vararg :: Maybe String,
+    body :: [LispVal],
+    closure :: Env
+}
 
 instance Show LispVal where
     show (Atom name) = name
@@ -49,7 +52,8 @@ instance Show LispVal where
     show (Float num) = show num
     show (Bool True) = "#t"
     show (Bool False) = "#f"
-    show (Fun { params = args, vararg = varargs, body = body, closure = env }) =
+    show (PrimitiveFun _) = "<primitive>"
+    show (Fun LispFunc { params = args, vararg = varargs }) =
       "(lambda (" ++ unwords (map show args) ++ (case varargs of
          Nothing -> ""
          Just arg -> " . " ++ arg) ++ ") ...)"
@@ -66,17 +70,6 @@ type Env = IORef [Binds]
 
 nullEnv :: IO Env
 nullEnv = newIORef [M.empty]
-
-  {-
-newSubEnv :: Env -> Env
-newSubEnv ref = do
-    p <- readIORef ref
-    writeIORef ref (M.empty : p)
-    return ref
--}
-{-
-   Errors
--}
 
 data LispError = NumArgs Integer [LispVal]
                | TypeMismatch String LispVal
