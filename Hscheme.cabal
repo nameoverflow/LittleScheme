@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Hscheme.Eval,
+  exposed-modules:     Hscheme.Evaluate,
                        Hscheme.Parser,
                        Hscheme.Types
   build-depends:       base >= 4.7 && < 5,

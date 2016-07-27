@@ -88,6 +88,7 @@ instance Show LispError where
     show (TypeMismatch expr found) = "Invalid type: expected " ++ expr ++ "; found" ++ show found
     show (Parser parseErr) = "Parse error at " ++ show parseErr
     show (DupBound var) = "Duplicate definition" ++ show var
+    show (Default msg) = msg
 
 instance Error LispError where
     noMsg = Default "An error has occurred"
@@ -95,6 +96,7 @@ instance Error LispError where
 
 type ThrowsError = Either LispError
 
+trapError :: IOThrowsError String -> IOThrowsError String
 trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a

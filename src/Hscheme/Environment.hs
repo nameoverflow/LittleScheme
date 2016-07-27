@@ -10,8 +10,6 @@ module Hscheme.Environment (
 import Control.Applicative
 import qualified Data.Map.Strict as M
 import Data.IORef
-import Data.Maybe
-import Control.Monad
 import Control.Monad.Trans
 
 import Hscheme.Types

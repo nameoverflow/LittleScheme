@@ -9,7 +9,6 @@ module Hscheme.Numeric (
 
 import Control.Monad
 
-import Hscheme.Parser
 import Hscheme.Types
 
 fold1M :: (Monad m) => (a -> a -> m a) -> [a] -> m a
@@ -31,6 +30,7 @@ numericOp _ [] = throwError $ NumArgs 2 []
 numericOp _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 numericOp op args = fold1M op args
 
+add, sub, mult :: [LispVal] -> IOThrowsError LispVal
 add = numericOp lispAdd
 sub = numericOp lispSub
 mult = numericOp lispMult

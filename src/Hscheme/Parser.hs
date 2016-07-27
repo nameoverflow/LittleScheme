@@ -1,14 +1,13 @@
 module Hscheme.Parser (
-    parseExpr,
-    parse
+    parseExpr
 ) where
 
 import Numeric
 import Data.Char
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment ()
-import Control.Monad (liftM)
 import Control.Applicative ((<$>))
+
 import Hscheme.Types
 
 type LispParser = Parser LispVal
@@ -18,6 +17,15 @@ symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
 spaces :: Parser ()
 spaces = skipMany1 space
+
+comment :: Parser ()
+comment = char ';' >> skipMany (noneOf "\n")
+
+multLineComment :: Parser ()
+multLineComment = skipMany1 $ between (string "#|") (string "|#") anyToken
+
+atomSplits :: Parser ()
+atomSplits = spaces <|> comment <|> multLineComment
 
 parseExpr :: LispParser
 parseExpr = parseString <|> parseNumber <|> parseListSugar <|> parseAtom <|> do
@@ -72,7 +80,7 @@ parseInteger = parseWithBase <|> readBase 10
               'x' -> readBase 16
 
 parseList :: LispParser
-parseList = List <$> sepBy parseExpr spaces
+parseList = List <$> sepBy parseExpr atomSplits
 
 parseDottedList :: LispParser
 parseDottedList = do
@@ -85,8 +93,8 @@ parseListSugar = do
     start <- oneOf "'`,@"
     x <- parseExpr
     let deSugar h = List [Atom h, x]
-    return $ case start of
-      '\'' -> deSugar "quote"
-      '`' -> deSugar "quasiquote"
-      '@' -> deSugar "unquote-splicing"
-      ',' -> deSugar "unquote"
+    return . deSugar $ case start of
+      '\'' -> "quote"
+      '`' -> "quasiquote"
+      '@' -> "unquote-splicing"
+      ',' -> "unquote"
