@@ -1,5 +1,6 @@
 module Hscheme.Parser (
-    parseExpr
+    parseExpr,
+    parse
 ) where
 
 import Numeric

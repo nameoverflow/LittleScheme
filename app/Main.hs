@@ -19,7 +19,7 @@ readExpr input = case parsed of
         parsed = parse parseExpr "lisp" input
 
 run :: Env -> String -> IO String
-run env expr = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env
+run env expr = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env (makeNullCont env)
 
 runAndPrint :: Env -> String -> IO ()
 runAndPrint env expr = run env expr >>= putStrLn

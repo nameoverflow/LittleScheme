@@ -2,11 +2,13 @@ module Hscheme.Types (
     LispVal(..),
     LispFunc(..),
     LispError(..),
+    Continuation(..),
     ThrowsError,
     IOThrowsError,
     Binds,
     Env,
     nullEnv,
+    makeNullCont,
     throwError,
     extractValue,
     trapError,
@@ -110,3 +112,11 @@ liftThrows (Right val) = return val
 
 runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = fmap extractValue (runErrorT $ trapError action)
+
+data Continuation = Continuation {
+    contClosure :: Env,
+    contBody :: LispVal -> IOThrowsError LispVal
+}
+
+makeNullCont :: Env -> Continuation
+makeNullCont env = Continuation env return
