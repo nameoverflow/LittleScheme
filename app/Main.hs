@@ -5,24 +5,10 @@ import System.IO
 
 import Control.Monad
 
-import Hscheme.Parser
-import Hscheme.Types
 import Hscheme.Evaluate
 
 import Hscheme.Primitive
 
-readExpr :: String -> ThrowsError LispVal
-readExpr input = case parsed of
-    Left err -> throwError $ Parser err
-    Right val -> return val
-    where
-        parsed = parse parseExpr "lisp" input
-
-run :: Env -> String -> IO String
-run env expr = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env (makeNullCont env)
-
-runAndPrint :: Env -> String -> IO ()
-runAndPrint env expr = run env expr >>= putStrLn
 
 flushStr :: String -> IO ()
 flushStr str = putStr str >> hFlush stdout
@@ -40,6 +26,7 @@ runRepl = primitives >>= until_ (== "quit") (readPrompt "λ > ") . runAndPrint
 
 main :: IO ()
 main = do
-    (expr:_) <- getArgs
-    env <- primitives
-    runAndPrint env expr
+    args <- getArgs
+    if null args
+        then runRepl
+        else primitives >>= flip runOne args

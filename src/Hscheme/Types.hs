@@ -16,6 +16,8 @@ module Hscheme.Types (
     runIOThrows
 ) where
 
+import System.IO (Handle)
+
 import Control.Monad.Error
 import Text.ParserCombinators.Parsec (ParseError)
 import Data.Char ()
@@ -35,8 +37,11 @@ data LispVal = Atom String
     | Float Double
     | String String
     | Bool Bool
-    | PrimitiveFun ([LispVal] -> IOThrowsError LispVal)
+    | PrimitiveFun ([LispVal] -> ThrowsError LispVal)
+    | IOFun ([LispVal] -> IOThrowsError LispVal)
+    | Port Handle
     | Fun LispFunc
+    | Cont Continuation
 
 data LispFunc = LispFunc {
     params :: [String],
@@ -55,10 +60,13 @@ instance Show LispVal where
     show (Bool True) = "#t"
     show (Bool False) = "#f"
     show (PrimitiveFun _) = "<primitive>"
+    show (IOFun _) = "<IO primitive>"
+    show (Port _) = "<IO port>"
     show (Fun LispFunc { params = args, vararg = varargs }) =
       "(lambda (" ++ unwords (map show args) ++ (case varargs of
          Nothing -> ""
          Just arg -> " . " ++ arg) ++ ") ...)"
+    show (Cont _) = "<continuation>"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map show
@@ -98,13 +106,14 @@ instance Error LispError where
 
 type ThrowsError = Either LispError
 
+type IOThrowsError = ErrorT LispError IO
+
 trapError :: IOThrowsError String -> IOThrowsError String
 trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
-
-type IOThrowsError = ErrorT LispError IO
+extractValue _           = undefined
 
 liftThrows :: ThrowsError a -> IOThrowsError a
 liftThrows (Left err) = throwError err

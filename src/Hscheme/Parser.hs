@@ -1,6 +1,6 @@
 module Hscheme.Parser (
-    parseExpr,
-    parse
+    readExpr,
+    readExprList
 ) where
 
 import Numeric
@@ -12,6 +12,19 @@ import Control.Applicative ((<$>))
 import Hscheme.Types
 
 type LispParser = Parser LispVal
+
+
+readOrThrow :: Parser a -> String -> ThrowsError a
+readOrThrow parser input = case parse parser "lisp" input of
+    Left err  -> throwError $ Parser err
+    Right val -> return val
+
+readExpr :: String -> ThrowsError LispVal
+readExpr = readOrThrow parseExpr
+
+readExprList :: String -> ThrowsError [LispVal]
+readExprList = readOrThrow (endBy parseExpr spaces)
+
 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
@@ -79,6 +92,7 @@ parseInteger = parseWithBase <|> readBase 10
               'o' -> readBase 8
               'd' -> readBase 10
               'x' -> readBase 16
+              _   -> undefined
 
 parseList :: LispParser
 parseList = List <$> sepBy parseExpr atomSplits
@@ -99,3 +113,4 @@ parseListSugar = do
       '`' -> "quasiquote"
       '@' -> "unquote-splicing"
       ',' -> "unquote"
+      _   -> undefined

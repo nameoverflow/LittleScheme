@@ -1,14 +1,42 @@
 module Hscheme.Evaluate (
-    eval
+    runOne,
+    runAndPrint
 ) where
 
 import Data.Maybe
 
+import System.IO
 import Control.Monad
 import Control.Monad.Error
+import Control.Applicative
 
+import Hscheme.IO (load)
 import Hscheme.Types
+import Hscheme.Parser
 import Hscheme.Environment
+
+
+
+-- readExpr :: String -> ThrowsError LispVal
+-- readExpr input = case parsed of
+--     Left err -> throwError $ Parser err
+--     Right val -> return val
+--     where
+--         parsed = parse parseExpr "lisp" input
+
+run :: Env -> String -> IO String
+run env expr = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env (makeNullCont env)
+
+runAndPrint :: Env -> String -> IO ()
+runAndPrint env expr = run env expr >>= putStrLn
+
+runOne :: Env -> [String] -> IO ()
+runOne env' args = do
+    env <- bindVars env' [("args", List $ map String $ drop 1 args)]
+    runIOThrows (show <$> eval env (makeNullCont env) (List [Atom "load", String $ head args]))
+        >>= hPutStrLn stderr
+
+
 
 eval :: Env -> Continuation -> LispVal -> IOThrowsError LispVal
 
@@ -43,12 +71,19 @@ eval env (Continuation _ cBody) (List (Atom "lambda" : DottedList args varargs :
 eval env (Continuation _ cBody) (List (Atom "lambda" : varargs@(Atom _) : funcBody)) =
      makeVarArgs varargs env [] funcBody >>= cBody
 
-
--- apply expression
-eval env cont (List (Atom "apply" : func : args)) = applyWithCont env cont func args
+-- load
+eval env cont (List [Atom "load", String filename]) =
+    load filename >>= fmap last . mapM (eval env cont)
 
 -- set!
 eval env (Continuation _ cBody) (List [Atom "set!", Atom var, val]) = setVar env var val >>= cBody
+
+-- call/cc
+eval env cont (List [Atom "call-with-current-continuation", func]) =
+    applyWithCont env cont func [Cont cont]
+
+eval _ _ (List [Cont cont@(Continuation cEnv _), val]) = eval cEnv cont val
+
 
 -- ordinary function appling
 eval env cont (List (func : args)) = applyWithCont env cont func args
@@ -64,28 +99,6 @@ makeNormalFunc = makeFunc Nothing
 
 makeVarArgs :: LispVal -> Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
 makeVarArgs = makeFunc . Just . show
-
--- apply :: Env -> LispVal -> [LispVal] -> IOThrowsError LispVal
--- apply env func originArgs = do
---     args <- mapM (eval env) originArgs
---     lambda <- eval env func
---     case lambda of
---       (Fun (LispFunc funcParams varargs funcBody funcClosure)) ->
---         if num funcParams /= num args && isNothing varargs then
---           throwError $ NumArgs (num funcParams) args
---         else do
---           newEnv <- liftIO $ newScope funcClosure >>= flip bindVars (zip funcParams args) >>= bindVarArgs varargs
---           last <$> mapM (eval newEnv) funcBody
---           where
---              remainingArgs = drop (length funcParams) args
---              num  = toInteger . length
---              bindVarArgs arg bindEnv = case arg of
---                Just argName -> liftIO $ bindVars bindEnv [(argName, List remainingArgs)]
---                Nothing -> return bindEnv
---
---       (PrimitiveFun pri) -> pri args
---
---       bad -> throwError $ NotFunction bad
 
 runSeqAsCont :: Env -> Continuation -> [LispVal] -> IOThrowsError LispVal
 runSeqAsCont env cont@(Continuation _ cBody) lispSeq =
@@ -104,7 +117,6 @@ applyWithCont :: Env -> Continuation -> LispVal -> [LispVal] -> IOThrowsError Li
 applyWithCont env cont@(Continuation _ cBody) func args' = eval env (Continuation env runFunction) func
 
     where
-
         evalArgs = makeArgsCont env args' []
         num  = toInteger . length
 
@@ -131,7 +143,7 @@ applyWithCont env cont@(Continuation _ cBody) func args' = eval env (Continuatio
                 evalArgs $ makeFuncCont lispFunc
 
             (PrimitiveFun pri) ->
-                evalArgs $ pri >=> cBody
+                evalArgs $ liftThrows . pri >=> cBody
 
             val -> throwError $ NotFunction val
 
@@ -144,3 +156,8 @@ makeArgsCont _ [] result contFunc = contFunc result
 makeArgsCont env (arg:restArgs) results func = eval env (Continuation env evalRest) arg
     where
         evalRest result' = makeArgsCont env restArgs (result':results) func
+
+-- callWithCurrentCont :: Env -> Continuation -> LispVal -> IOThrowsError LispVal
+-- callWithCurrentCont env cont@(Continuation cEnv cBody) fun = eval env currentCont fun
+--     where
+--         currentCont resFun =
