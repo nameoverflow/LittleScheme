@@ -16,12 +16,17 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Hscheme.Evaluate,
+                       Hscheme.Primitive,
+                       Hscheme.Environment,
+                       Hscheme.IO,
+                       Hscheme.Types,
                        Hscheme.Parser,
-                       Hscheme.Types
+                       Hscheme.Numeric
   build-depends:       base >= 4.7 && < 5,
                        parsec,
                        mtl,
-                       containers
+                       containers,
+                       directory
   default-language:    Haskell2010
 
 executable Hscheme-exe

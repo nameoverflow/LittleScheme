@@ -45,7 +45,7 @@ eval _ (Continuation _ cBody) val@(String _) = cBody val
 eval _ (Continuation _ cBody) val@(Number _) = cBody val
 eval _ (Continuation _ cBody) val@(Float _) = cBody val
 eval _ (Continuation _ cBody) val@(Bool _) = cBody val
-
+eval _ (Continuation _ cBody) val@(Cont _) = cBody val
 -- list
 eval _ (Continuation _ cBody) (List [Atom "quote", val]) = cBody val
 -- eval env (List [Atom "unquote", val]) = eval env val
@@ -84,6 +84,13 @@ eval env cont (List [Atom "call-with-current-continuation", func]) =
 
 eval _ _ (List [Cont cont@(Continuation cEnv _), val]) = eval cEnv cont val
 
+-- if
+eval env cont (List [Atom "if", predl, conseq, alt]) =
+    eval env (Continuation env cont') predl
+    where
+        cont' res = case res of
+            Bool False -> eval env cont alt
+            _          -> eval env cont conseq
 
 -- ordinary function appling
 eval env cont (List (func : args)) = applyWithCont env cont func args
@@ -144,6 +151,11 @@ applyWithCont env cont@(Continuation _ cBody) func args' = eval env (Continuatio
 
             (PrimitiveFun pri) ->
                 evalArgs $ liftThrows . pri >=> cBody
+
+            (Cont contVal@(Continuation cEnv _)) ->
+                case args' of
+                    [val] -> eval cEnv contVal val
+                    _     -> throwError $ NumArgs 1 args'
 
             val -> throwError $ NotFunction val
 

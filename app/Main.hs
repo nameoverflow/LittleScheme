@@ -2,6 +2,7 @@ module Main where
 
 import System.Environment
 import System.IO
+import System.Directory
 
 import Control.Monad
 
@@ -27,6 +28,8 @@ runRepl = primitives >>= until_ (== "quit") (readPrompt "λ > ") . runAndPrint
 main :: IO ()
 main = do
     args <- getArgs
+    path <- getCurrentDirectory
+    putStrLn path
     if null args
         then runRepl
         else primitives >>= flip runOne args

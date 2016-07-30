@@ -4,6 +4,8 @@ module Hscheme.Primitive (
 
 import System.IO
 import Control.Arrow
+import Control.Applicative
+
 
 import Hscheme.Types
 import Hscheme.Environment
@@ -11,7 +13,10 @@ import Hscheme.Environment
 import qualified Hscheme.Numeric as N
 import qualified Hscheme.IO as I
 
-numericPrimitives :: [(String, LispVal)]
+primitives :: IO Env
+primitives = nullEnv >>= flip bindVars (numericPrimitives ++ boolPrimitives ++ ioPrimitives)
+
+numericPrimitives, boolPrimitives, ioPrimitives :: [(String, LispVal)]
 numericPrimitives = map (second PrimitiveFun) [
         ("+", N.add),
         ("-", N.sub),
@@ -23,7 +28,22 @@ numericPrimitives = map (second PrimitiveFun) [
         ("remainder", N.intOp rem)
     ]
 
-ioPrimitives :: [(String, LispVal)]
+boolPrimitives = map (second PrimitiveFun) [
+        ("=", numBoolBinop (==)),
+        ("<", numBoolBinop (<)),
+        (">", numBoolBinop (>)),
+        ("/=", numBoolBinop (/=)),
+        (">=", numBoolBinop (>=)),
+        ("<=", numBoolBinop (<=)),
+        ("&&", boolBoolBinop (&&)),
+        ("||", boolBoolBinop (||)),
+        ("string=?", strBoolBinop (==)),
+        ("string<?", strBoolBinop (<)),
+        ("string>?", strBoolBinop (>)),
+        ("string<=?", strBoolBinop (<=)),
+        ("string>=?", strBoolBinop (>=))
+    ]
+
 ioPrimitives = map (second IOFun) [
         ("apply", I.applyProc),
         ("open-input-file", I.makePort ReadMode),
@@ -36,5 +56,27 @@ ioPrimitives = map (second IOFun) [
         ("read-all", I.readAll)
     ]
 
-primitives :: IO Env
-primitives = nullEnv >>= flip bindVars (numericPrimitives ++ ioPrimitives)
+boolOp :: Ord a => (LispVal -> ThrowsError a)
+                   -> (a -> a -> Bool)
+                   -> [LispVal] -> ThrowsError LispVal
+
+boolOp unpack op [left, right] = Bool <$> liftA2 op (unpack left) (unpack right)
+boolOp _ _ args = throwError $ NumArgs 2 args
+
+numBoolBinop  = boolOp unpackNum
+strBoolBinop  = boolOp unpackStr
+boolBoolBinop = boolOp unpackBool
+
+unpackNum :: LispVal -> ThrowsError Double
+unpackNum (Number val) = return $ fromInteger val
+unpackNum (Float val) = return val
+
+unpackStr :: LispVal -> ThrowsError String
+unpackStr (String s) = return s
+unpackStr (Number s) = return $ show s
+unpackStr (Bool s)   = return $ show s
+unpackStr notString  = throwError $ TypeMismatch "string" notString
+
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool b) = return b
+unpackBool notBool  = throwError $ TypeMismatch "boolean" notBool
