@@ -6,14 +6,16 @@ A scheme interpreter implements a decent subset of R5RS Scheme.
 
 - Function / lambda
 
-- Basic support for variable and environment (`define`/`set!`)
+- Basic supporting for variable and environment (`define`/`set!`)
 
 - First-class continuation (`call-with-current-continuation`)
 
-- Basic numeric and string operation (arithmetic/compare)
+- Numeric and string operation (arithmetic/compare)
 
-TODO:
+## TODO
 
-Implements macro
+- Macro
 
-LICENSE: [WTFPL](http://www.wtfpl.net/) – Do What the Fuck You Want to Public License
+## LICENSE
+
+WTFPL
